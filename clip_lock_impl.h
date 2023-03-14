@@ -7,6 +7,9 @@
 #ifndef CLIP_LOCK_IMPL_H_INCLUDED
 #define CLIP_LOCK_IMPL_H_INCLUDED
 
+#include <string>
+#include <unordered_map>
+
 namespace clip {
 
 class lock::impl {
@@ -17,6 +20,7 @@ public:
   bool locked() const { return m_locked; }
   bool clear();
   bool is_convertible(format f) const;
+  bool get_mime_type(format, std::string &) const;
   bool set_data(format f, const char* buf, size_t len);
   bool get_data(format f, char* buf, size_t len) const;
   size_t get_data_length(format f) const;
@@ -26,6 +30,8 @@ public:
 
 private:
   bool m_locked;
+  static const std::unordered_map<std::string, std::string> m_suffix_to_mime;
+
 };
 
 } // namespace clip

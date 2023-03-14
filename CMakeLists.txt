@@ -20,7 +20,7 @@ if(UNIX AND NOT APPLE)
   option(CLIP_X11_WITH_PNG "Compile with libpng to support copy/paste image in png format" on)
 endif()
 
-set(CLIP_SOURCES clip.cpp image.cpp)
+set(CLIP_SOURCES clip.cpp image.cpp clip_lock_impl.cpp)
 
 if(WIN32)
   if(MSVC)

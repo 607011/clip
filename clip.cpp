@@ -7,6 +7,7 @@
 #include "clip.h"
 #include "clip_lock_impl.h"
 
+#include <iostream>
 #include <vector>
 #include <stdexcept>
 
@@ -44,6 +45,10 @@ bool lock::is_convertible(format f) const {
   return p->is_convertible(f);
 }
 
+bool lock::get_mime_type(format f, std::string &mime) const {
+  return p->get_mime_type(f, mime);
+}
+
 bool lock::set_data(format f, const char* buf, size_t length) {
   return p->set_data(f, buf, length);
 }
@@ -71,6 +76,7 @@ bool lock::get_image_spec(image_spec& spec) const {
 format empty_format() { return 0; }
 format text_format()  { return 1; }
 format image_format() { return 2; }
+format file_format() { return 3; }
 
 bool has(format f) {
   lock l;
@@ -118,6 +124,41 @@ bool get_text(std::string& value) {
     value.clear();
     return true;
   }
+}
+
+bool set_file(char const *data, size_t size) {
+  lock l;
+  if (l.locked()) {
+    l.clear();
+    return l.set_data(file_format(), data, size);
+  }
+  else
+    return false;
+}
+
+bool get_file(std::vector<uint8_t> &file) {
+  lock l;
+  if (!l.locked())
+    return false;
+
+  format f = file_format();
+  if (!l.is_convertible(f))
+    return false;
+
+  size_t len = l.get_data_length(f);
+  if (len > 0) {
+    file.resize(len);
+    l.get_data(f, reinterpret_cast<char*>(file.data()), len);
+    return true;
+  }
+  return false;
+}
+
+bool get_mime_type(format f, std::string &mime) {
+  lock l;
+  if (!l.locked())
+    return false;
+  return l.get_mime_type(f, mime);
 }
 
 bool set_image(const image& img) {

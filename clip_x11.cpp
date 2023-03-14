@@ -1063,6 +1063,13 @@ bool lock::impl::is_convertible(format f) const {
   return manager->is_convertible(f);
 }
 
+bool lock::impl::get_mime_type(format, std::string &mime) const
+{
+  // TODO
+  mime = "application/binary";
+  return false;
+}
+
 bool lock::impl::set_data(format f, const char* buf, size_t len) {
   return manager->set_data(f, buf, len);
 }

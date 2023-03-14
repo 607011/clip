@@ -9,8 +9,11 @@
 #pragma once
 
 #include <cassert>
+#include <cstdlib>
 #include <memory>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace clip {
 
@@ -47,6 +50,7 @@ namespace clip {
     // Returns true if the clipboard can be converted to the given
     // format.
     bool is_convertible(format f) const;
+    bool get_mime_type(format f, std::string &) const;
     bool set_data(format f, const char* buf, size_t len);
     bool get_data(format f, char* buf, size_t len) const;
     size_t get_data_length(format f) const;
@@ -72,6 +76,9 @@ namespace clip {
   // When the clipboard has an image.
   format image_format();
 
+  // When the clipboard has a file.
+  format file_format();
+
   // Returns true if the clipboard has content of the given type.
   bool has(format f);
 
@@ -92,6 +99,8 @@ namespace clip {
   void set_error_handler(error_handler f);
   error_handler get_error_handler();
 
+  bool get_mime_type(format f, std::string &);
+
   // ======================================================================
   // Text
   // ======================================================================
@@ -101,6 +110,16 @@ namespace clip {
   bool set_text(const std::string& value);
   bool get_text(std::string& value);
 
+  // ======================================================================
+  // File
+  // ======================================================================
+
+  // High-level API to put/get binary file data in/from the clipboard. These
+  // functions returns false in case of error.
+  bool set_file(std::vector<uint8_t> const &);
+  bool get_file(std::vector<uint8_t> &);
+  
+  
   // ======================================================================
   // Image
   // ======================================================================

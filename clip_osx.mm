@@ -9,6 +9,7 @@
 #include "clip_lock_impl.h"
 
 #include <cassert>
+#include <string>
 #include <vector>
 #include <map>
 
@@ -151,6 +152,10 @@ bool lock::impl::is_convertible(format f) const {
   if (f == text_format()) {
     result = [pasteboard availableTypeFromArray:[NSArray arrayWithObject:NSPasteboardTypeString]];
   }
+  else if (f == file_format()) {
+    result = [pasteboard availableTypeFromArray:
+      [NSArray arrayWithObjects:NSPasteboardTypeFileURL,nil]];
+  }
   else if (f == image_format()) {
     result = [pasteboard availableTypeFromArray:
       [NSArray arrayWithObjects:NSPasteboardTypeTIFF,NSPasteboardTypePNG,nil]];
@@ -168,6 +173,30 @@ bool lock::impl::is_convertible(format f) const {
   }
 
   return (result ? true: false);
+}
+
+bool lock::impl::get_mime_type(format f, std::string &mime) const {
+  if (!is_convertible(f))
+    return false;
+
+  NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
+
+  if (f == file_format()) {
+    NSString* urlString = [pasteboard stringForType:NSPasteboardTypeFileURL];
+    NSURL* url = [NSURL URLWithString:urlString];
+    NSString* ext = [url pathExtension];
+    mime = m_suffix_to_mime.at([ext UTF8String]);
+    return true;
+  }
+  else if (f == image_format()) {
+    mime = "image/png";
+    return true;
+  }
+  else if (f == text_format()) {
+    mime = "text/plain";
+    return true;
+  }
+  return false;
 }
 
 bool lock::impl::set_data(format f, const char* buf, size_t len) {
@@ -205,41 +234,54 @@ bool lock::impl::get_data(format f, char* buf, size_t len) const {
   assert(buf);
   if (!buf || !is_convertible(f))
     return false;
-
   NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
-
   if (f == text_format()) {
     NSString* string = [pasteboard stringForType:NSPasteboardTypeString];
     int reqsize = [string lengthOfBytesUsingEncoding:NSUTF8StringEncoding]+1;
-
     assert(reqsize <= len);
     if (reqsize > len) {
       // Buffer is too small
       return false;
     }
-
     if (reqsize == 0)
       return true;
-
     memcpy(buf, [string UTF8String], reqsize);
+    return true;
+  }
+  else if (f == file_format()) {
+    NSString* urlString = [pasteboard stringForType:NSPasteboardTypeFileURL];
+    NSURL* url = [NSURL URLWithString:urlString];
+    NSNumber* reqsizeValue = nil;
+    NSError* fileSizeError = nil;
+    [url getResourceValue:&reqsizeValue
+         forKey:NSURLFileSizeKey
+         error:&fileSizeError];
+    if (reqsizeValue == nil) {
+      return false;
+    }
+    size_t reqsize = [reqsizeValue longLongValue];
+    if (reqsize > len) {
+      return false;
+    }
+    if (reqsize == 0)
+      return true;
+    NSData *data = [NSData dataWithContentsOfURL:url];
+    [data getBytes:buf length:reqsize];
     return true;
   }
 
   auto it = g_format_to_name.find(f);
   if (it == g_format_to_name.end())
     return false;
-
   const std::string& formatName = it->second;
   NSString* typeString =
     [[NSString alloc] initWithBytesNoCopy:(void*)formatName.c_str()
-                                   length:formatName.size()
-                                 encoding:NSUTF8StringEncoding
-                             freeWhenDone:NO];
-
+                      length:formatName.size()
+                      encoding:NSUTF8StringEncoding
+                      freeWhenDone:NO];
   NSData* data = [pasteboard dataForType:typeString];
   if (!data)
     return false;
-
   [data getBytes:buf length:len];
   return true;
 }
@@ -250,6 +292,19 @@ size_t lock::impl::get_data_length(format f) const {
   if (f == text_format()) {
     NSString* string = [pasteboard stringForType:NSPasteboardTypeString];
     return [string lengthOfBytesUsingEncoding:NSUTF8StringEncoding]+1;
+  }
+  else if (f == file_format()) {
+    NSString* urlString = [pasteboard stringForType:NSPasteboardTypeFileURL];
+    NSURL* url = [NSURL URLWithString:urlString];
+    NSNumber* fileSizeValue = nil;
+    NSError* fileSizeError = nil;
+    [url getResourceValue:&fileSizeValue
+         forKey:NSURLFileSizeKey
+         error:&fileSizeError];
+    if (fileSizeValue)
+      return [fileSizeValue longLongValue];
+
+    return 0;
   }
 
   auto it = g_format_to_name.find(f);
