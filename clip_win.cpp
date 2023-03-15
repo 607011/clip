@@ -238,19 +238,50 @@ bool lock::impl::is_convertible(format f) const {
        IsClipboardFormatAvailable(CF_UNICODETEXT) ||
        IsClipboardFormatAvailable(CF_OEMTEXT));
   }
+  else if (f == file_format()) {
+    return (IsClipboardFormatAvailable(CF_HDROP) ? true : false);    
+  }
   else if (f == image_format()) {
-    return (IsClipboardFormatAvailable(CF_DIB) ? true: false);
+    return (IsClipboardFormatAvailable(CF_DIB) ? true : false);
   }
   else if (IsClipboardFormatAvailable(f))
     return true;
-  else
-    return false;
+  return false;
 }
 
 bool lock::impl::get_mime_type(format, std::string &mime) const
 {
-  // TODO
-  mime = "application/binary";
+  if (f == file_format()) {
+    // TODO: Reality check needed. Will it compile? If yes, will it work?
+    mime = "application/binary";
+    HGLOBAL hGlobal = (HGLOBAL)GetClipboardData(CF_HDROP);
+    if (!hGlobal)
+      return false;
+    HDROP hDrop = (HDROP)GlobalLock(hGlobal);
+    if (!hDrop)
+      return false;
+    UINT fileCount = DragQueryFile(hDrop, 0xFFFFFFFF, 0, 0);
+    if (fileCount == 0)
+      return false;
+    UINT filenameLength = DragQueryFile(hDrop, 0, 0, 0);
+    TCHAR lpszFileName[MAX_PATH];
+    DragQueryFile(hDrop, i, lpszFileName, filenameLength+1);
+    LPCSTR ext = PathFindExtension(lpszFileName);
+    if (ext == NULL || ext[0] == '.' || ext[1] == '\0')
+      return false;
+    if (m_suffix_to_mime.find(ext+1) == m_suffix_to_mime.end())
+      return false;
+    mime = m_suffix_to_mime.at(ext+1);
+    return true;
+  }
+  else if (f == image_format()) {
+    mime = "image/png";
+    return true;
+  }
+  else if (f == text_format()) {
+    mime = "text/plain";
+    return true;
+  }
   return false;
 }
 
@@ -298,9 +329,42 @@ bool lock::impl::get_data(format f, char* buf, size_t len) const {
   if (!buf || !is_convertible(f))
     return false;
 
-  bool result = false;
-
-  if (f == text_format()) {
+  if (f == file_format()) {
+    HGLOBAL hGlobal = (HGLOBAL)GetClipboardData(CF_HDROP);
+    if (!hGlobal)
+      return false;
+    HDROP hDrop = (HDROP)GlobalLock(hGlobal);
+    if (!hDrop)
+      return false;
+    UINT fileCount = DragQueryFile(hDrop, 0xFFFFFFFF, 0, 0);
+    if (fileCount == 0)
+      return false;
+    UINT filenameLength = DragQueryFile(hDrop, 0, 0, 0);
+    TCHAR lpszFileName[MAX_PATH];
+    DragQueryFile(hDrop, i, lpszFileName, filenameLength+1);
+    HANDLE hFile = CreateFile(lpszFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, NULL, NULL); 
+    if (hFile == INVALID_HANDLE_VALUE) {
+      GlobalUnlock(hGlobal);
+      return false;
+    }
+    LARGE_INTEGER lFileSize;
+    BOOL bGetSize = GetFileSizeEx(hFile, &lFileSize);
+    if (!bGetSize || lFileSize > len) {
+      GlobalUnlock(hGlobal);
+      CloseHandle(hFile);
+      return false;
+    }
+    BOOL bRead = ReadFile(hFile, buf, lFileSize, NULL, NULL);
+    if (!bRead) {
+      GlobalUnlock(hGlobal);
+      CloseHandle(hFile);
+      return false;
+    }
+    GlobalUnlock(hGlobal);
+    CloseHandle(hFile);
+    return true;
+  }    
+  else if (f == text_format()) {
     if (IsClipboardFormatAvailable(CF_UNICODETEXT)) {
       HGLOBAL hglobal = GetClipboardData(CF_UNICODETEXT);
       if (hglobal) {
@@ -388,6 +452,31 @@ size_t lock::impl::get_data_length(format f) const {
           GlobalUnlock(hglobal);
         }
       }
+    }
+  }
+  else if (f == file_format()) {
+    if (IsClipboardFormatAvailable(CF_HDROP)) {}
+      HGLOBAL hGlobal = (HGLOBAL)GetClipboardData(CF_HDROP);
+      if (!hGlobal)
+        return false;
+      HDROP hDrop = (HDROP)GlobalLock(hGlobal);
+      if (!hDrop)
+        return false;
+      UINT fileCount = DragQueryFile(hDrop, 0xFFFFFFFF, 0, 0);
+      if (fileCount > 0) {
+        UINT filenameLength = DragQueryFile(hDrop, 0, 0, 0);
+        TCHAR lpszFileName[MAX_PATH];
+        DragQueryFile(hDrop, i, lpszFileName, filenameLength+1);
+        HANDLE hFile = CreateFile(lpszFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, NULL, NULL); 
+        if (hFile != INVALID_HANDLE_VALUE) {
+          LARGE_INTEGER lFileSize;
+          BOOL bGetSize = GetFileSizeEx(hFile, &lFileSize);
+          if (bGetSize)
+            len = lFileSize;
+        }
+      }
+      GlobalUnlock(hGlobal);
+      CloseFile(hFile);
     }
   }
   else if (f != empty_format()) {
