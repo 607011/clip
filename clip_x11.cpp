@@ -205,6 +205,7 @@ public:
     const atoms atoms = get_format_atoms(f);
     const xcb_window_t owner = get_x11_selection_owner();
 
+    // TODO: add support for file_format()
     // If we are the owner, we just can check the m_data map
     if (owner == m_window) {
       for (xcb_atom_t atom : atoms) {
@@ -241,25 +242,14 @@ public:
     return false;
   }
 
-  bool get_mime_type(format, std::string &mime) const {
+  bool get_mime_type(format f, std::string &mime) const {
     if (!is_convertible(f))
       return false;
 
-    /*
-    NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
-    */
-
     if (f == file_format()) {
       const atoms atoms = get_format_atoms(f);
-      const xcb_window_t owner = get_x11_selection_owner();
-      /*
-      NSString* urlString = [pasteboard stringForType:NSPasteboardTypeFileURL];
-      NSURL* url = [NSURL URLWithString:urlString];
-      NSString* ext = [url pathExtension];
-      if (m_suffix_to_mime.find([ext UTF8String]) == m_suffix_to_mime.end())
-        return false;
-      mime = m_suffix_to_mime.at([ext UTF8String]);
-      */
+      [[maybe_unused]] const xcb_window_t owner = get_x11_selection_owner();
+      // TODO: add support for file_format()
       return true;
     }
     else if (f == image_format()) {
@@ -294,6 +284,7 @@ public:
   bool get_data(format f, char* buf, size_t len) const {
     const atoms atoms = get_format_atoms(f);
     const xcb_window_t owner = get_x11_selection_owner();
+    // TODO: add support for file_format()
     if (owner == m_window) {
       for (xcb_atom_t atom : atoms) {
         auto it = m_data.find(atom);
@@ -1095,7 +1086,7 @@ bool lock::impl::is_convertible(format f) const {
   return manager->is_convertible(f);
 }
 
-bool lock::impl::get_mime_type(format, std::string &mime) const
+bool lock::impl::get_mime_type(format f, std::string &mime) const
 {
   return manager->get_mime_type(f, mime);
 }
