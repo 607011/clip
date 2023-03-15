@@ -185,6 +185,8 @@ bool lock::impl::get_mime_type(format f, std::string &mime) const {
     NSString* urlString = [pasteboard stringForType:NSPasteboardTypeFileURL];
     NSURL* url = [NSURL URLWithString:urlString];
     NSString* ext = [url pathExtension];
+    if (m_suffix_to_mime.find([ext UTF8String]) == m_suffix_to_mime.end())
+      return false;
     mime = m_suffix_to_mime.at([ext UTF8String]);
     return true;
   }
