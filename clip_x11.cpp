@@ -241,6 +241,38 @@ public:
     return false;
   }
 
+  bool get_mime_type(format, std::string &mime) const {
+    if (!is_convertible(f))
+      return false;
+
+    /*
+    NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
+    */
+
+    if (f == file_format()) {
+      const atoms atoms = get_format_atoms(f);
+      const xcb_window_t owner = get_x11_selection_owner();
+      /*
+      NSString* urlString = [pasteboard stringForType:NSPasteboardTypeFileURL];
+      NSURL* url = [NSURL URLWithString:urlString];
+      NSString* ext = [url pathExtension];
+      if (m_suffix_to_mime.find([ext UTF8String]) == m_suffix_to_mime.end())
+        return false;
+      mime = m_suffix_to_mime.at([ext UTF8String]);
+      */
+      return true;
+    }
+    else if (f == image_format()) {
+      mime = "image/png";
+      return true;
+    }
+    else if (f == text_format()) {
+      mime = "text/plain";
+      return true;
+    }
+    return false;
+  }
+
   bool set_data(format f, const char* buf, size_t len) {
     if (!set_x11_selection_owner())
       return false;
@@ -1065,9 +1097,7 @@ bool lock::impl::is_convertible(format f) const {
 
 bool lock::impl::get_mime_type(format, std::string &mime) const
 {
-  // TODO
-  mime = "application/binary";
-  return false;
+  return manager->get_mime_type(f, mime);
 }
 
 bool lock::impl::set_data(format f, const char* buf, size_t len) {

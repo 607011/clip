@@ -175,7 +175,6 @@ bool get_image(image& img) {
   lock l;
   if (!l.locked())
     return false;
-
   format f = image_format();
   if (!l.is_convertible(f))
     return false;
@@ -187,11 +186,9 @@ bool get_image_spec(image_spec& spec) {
   lock l;
   if (!l.locked())
     return false;
-
   format f = image_format();
   if (!l.is_convertible(f))
     return false;
-
   return l.get_image_spec(spec);
 }
 
