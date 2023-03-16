@@ -249,7 +249,7 @@ bool lock::impl::is_convertible(format f) const {
   return false;
 }
 
-bool lock::impl::get_mime_type(format, std::string &mime) const
+bool lock::impl::get_mime_type(format f, std::string &mime) const
 {
   if (f == file_format()) {
     // TODO: Reality check needed. Will it compile? If yes, will it work?
@@ -265,7 +265,7 @@ bool lock::impl::get_mime_type(format, std::string &mime) const
       return false;
     UINT filenameLength = DragQueryFile(hDrop, 0, 0, 0);
     TCHAR lpszFileName[MAX_PATH];
-    DragQueryFile(hDrop, i, lpszFileName, filenameLength+1);
+    DragQueryFile(hDrop, 0, lpszFileName, filenameLength+1);
     LPCSTR ext = PathFindExtension(lpszFileName);
     if (ext == NULL || ext[0] == '.' || ext[1] == '\0')
       return false;
@@ -329,6 +329,7 @@ bool lock::impl::get_data(format f, char* buf, size_t len) const {
   if (!buf || !is_convertible(f))
     return false;
 
+  BOOL result = true;
   if (f == file_format()) {
     HGLOBAL hGlobal = (HGLOBAL)GetClipboardData(CF_HDROP);
     if (!hGlobal)
@@ -341,7 +342,7 @@ bool lock::impl::get_data(format f, char* buf, size_t len) const {
       return false;
     UINT filenameLength = DragQueryFile(hDrop, 0, 0, 0);
     TCHAR lpszFileName[MAX_PATH];
-    DragQueryFile(hDrop, i, lpszFileName, filenameLength+1);
+    DragQueryFile(hDrop, 0, lpszFileName, filenameLength+1);
     HANDLE hFile = CreateFile(lpszFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, NULL, NULL); 
     if (hFile == INVALID_HANDLE_VALUE) {
       GlobalUnlock(hGlobal);
@@ -349,12 +350,12 @@ bool lock::impl::get_data(format f, char* buf, size_t len) const {
     }
     LARGE_INTEGER lFileSize;
     BOOL bGetSize = GetFileSizeEx(hFile, &lFileSize);
-    if (!bGetSize || lFileSize > len) {
+    if (!bGetSize || lFileSize.QuadPart > len) {
       GlobalUnlock(hGlobal);
       CloseHandle(hFile);
       return false;
     }
-    BOOL bRead = ReadFile(hFile, buf, lFileSize, NULL, NULL);
+    BOOL bRead = ReadFile(hFile, buf, lFileSize.QuadPart, NULL, NULL);
     if (!bRead) {
       GlobalUnlock(hGlobal);
       CloseHandle(hFile);
@@ -455,7 +456,7 @@ size_t lock::impl::get_data_length(format f) const {
     }
   }
   else if (f == file_format()) {
-    if (IsClipboardFormatAvailable(CF_HDROP)) {}
+    if (IsClipboardFormatAvailable(CF_HDROP)) {
       HGLOBAL hGlobal = (HGLOBAL)GetClipboardData(CF_HDROP);
       if (!hGlobal)
         return false;
@@ -466,17 +467,17 @@ size_t lock::impl::get_data_length(format f) const {
       if (fileCount > 0) {
         UINT filenameLength = DragQueryFile(hDrop, 0, 0, 0);
         TCHAR lpszFileName[MAX_PATH];
-        DragQueryFile(hDrop, i, lpszFileName, filenameLength+1);
+        DragQueryFile(hDrop, 0, lpszFileName, filenameLength+1);
         HANDLE hFile = CreateFile(lpszFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, NULL, NULL); 
         if (hFile != INVALID_HANDLE_VALUE) {
           LARGE_INTEGER lFileSize;
           BOOL bGetSize = GetFileSizeEx(hFile, &lFileSize);
           if (bGetSize)
-            len = lFileSize;
+            len = lFileSize.QuadPart;
         }
+        CloseHandle(hFile);
       }
       GlobalUnlock(hGlobal);
-      CloseFile(hFile);
     }
   }
   else if (f != empty_format()) {
