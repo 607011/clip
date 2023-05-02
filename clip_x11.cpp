@@ -3,6 +3,8 @@
 //
 // This file is released under the terms of the MIT license.
 // Read LICENSE.txt for more information.
+//
+// Modifications by Oliver Lau <ola@ct.de>
 
 #include "clip.h"
 #include "clip_lock_impl.h"
